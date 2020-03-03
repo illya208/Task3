@@ -10,7 +10,12 @@ Acceptance Criteria
 3.	The output should contain the total number of processed files, count of blank lines, 
 count of comment lines, count of lines with code and time of execution
 4.	The results should also be saved in file.
-*/
+*/\
+
+
+
+//TODO doesent work siwh /* empty line 
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -20,6 +25,7 @@ count of comment lines, count of lines with code and time of execution
 #include <thread>
 #include <future>
 #include <mutex>
+#include <experimental/filesystem>
 /*
 i was trying to use boost for parsing all *.cpp files but have a problem with no .lib file....
 #include <boost/filesystem.hpp>
@@ -29,7 +35,7 @@ so as a solutuion explorer i used bat script which is written automaticly for in
 */
 
 using namespace std;
-
+namespace fs = std::experimental::filesystem;
 std::mutex g_lock;
 
 int global_count_of_line;
@@ -88,14 +94,12 @@ void line_of_code(string file_name) {
 	cmatch sm;
 
 	string buf = s;
-
+	
 
 	while (regex_search(s.c_str(), sm, reg_com1)) {
 		count_comments++;
 		s = sm.suffix().str();
 	}
-
-	s = buf;
 
 	cmatch sm2;
 	while (regex_search(s.c_str(), sm2, reg_com2)) {
@@ -128,64 +132,34 @@ void line_of_code(string file_name) {
 
 int main(int argc, char *argv[])
 {
-
-	string File_Path;
-	cout << "Input File path: \n";
-	cin >> File_Path;
-	string Directory_of_file_path;
-	for (int i = 0; i < File_Path.size(); i++) {
-		if (File_Path[i] != '\\') {
-			Directory_of_file_path += File_Path[i];
-		}
-		else {
-			break;
+	string File_Path_test;
+	cout << "input Path: ";
+	cin >> File_Path_test;
+	//File_Path_test="D:\\task_test";
+	auto start = chrono::steady_clock::now();
+	fs::path workdir = File_Path_test;
+	if (!fs::exists(workdir)) {
+		cout << "no such Path\n";
+		system("pause");
+		return -1;
+	}
+	vector<string> vector_files_test;
+	
+	for (auto& p : fs::recursive_directory_iterator(File_Path_test)) {
+		if (!fs::is_directory(p) && p.path().extension() == ".cpp" || !fs::is_directory(p) && p.path().extension() == ".hpp"
+			|| !fs::is_directory(p) && p.path().extension() == ".c" || !fs::is_directory(p) && p.path().extension() == ".h") {
+			vector_files_test.push_back(p.path().string());
 		}
 	}
-	cout << "->>>>" << Directory_of_file_path << endl;
 
-	string new_file = File_Path + "\\filelist7.txt"; //file where we store the result of bat script
-
-	std::ofstream File("files2.bat"); //output file .bat to use in cmd
-
-	string msg;
-	msg += "chcp 1251 \n";
-	msg += Directory_of_file_path+'\n';
-	msg += "cd " + File_Path +'\n';
-	msg += "dir /s /b *.cpp OR *.h OR *.hpp OR *.c > "+ new_file ;
-	File << msg;
-	File.close();
-	system("files2.bat");//execute bat
-
-	//all list of c/c++ files in new_file
-	string line;
-	ifstream myfile(new_file);
-	vector<string> vector_files;
-	try {
-		if (myfile)
-		{
-			while (getline(myfile, line))
-			{
-				vector_files.push_back(line);
-			}
-			myfile.close();
-		}
-		else throw Exception("myfile had a problem");
-	}
-	catch (Exception& e) {
-		cout << e.what() << '\n';
-	}
-
-	cout << "!!!!!!" << endl;
-	for (int i = 0; i < vector_files.size(); i++) {
-		cout << vector_files[i] << endl;
+	for (unsigned int i = 0; i < vector_files_test.size(); i++) {
+		cout<<"!"<<vector_files_test[i] << "!" << endl;
 	}
 	
-	auto start = chrono::steady_clock::now();
-
-
-	std::vector<std::thread> vector_threads; // i'd better use async but in task reference said thread
-	for (std::size_t i = 0; i < vector_files.size(); i++) {
-		vector_threads.push_back(std::thread(&line_of_code, vector_files[i]));
+	std::vector<std::thread> vector_threads; // i'd better use async but in task reference said std::thread
+	for (std::size_t i = 0; i < vector_files_test.size(); i++) {
+		//line_of_code(vector_files_test[i]);
+		vector_threads.push_back(std::thread(&line_of_code, vector_files_test[i]));
 	}
 	for (auto & th : vector_threads)
 		th.join();
@@ -195,9 +169,9 @@ int main(int argc, char *argv[])
 	cout << "count of comments =" << global_count_of_comment_lines << endl;
 
 	std::ofstream Result_file("results.txt");
-	Result_file << "Files processed: " << vector_files.size() <<" with time "<< chrono::duration_cast<chrono::milliseconds>(end - start).count()<<" ms" << '\n';
-	for (int i = 0; i < vector_files.size(); i++) {
-		Result_file << vector_files[i] << '\n';
+	Result_file << "Files processed: " << vector_files_test.size() <<" with time "<< chrono::duration_cast<chrono::milliseconds>(end - start).count()<<" ms" << '\n';
+	for (int i = 0; i < vector_files_test.size(); i++) {
+		Result_file << vector_files_test[i] << '\n';
 	}
 	Result_file << "Full amount of lines =" << global_count_of_line << '\n';
 	Result_file << "Amount of blank lines =" << global_count_of_blank_lines << '\n';
@@ -206,7 +180,6 @@ int main(int argc, char *argv[])
 		- global_count_of_blank_lines << '\n';
 	Result_file.close();
 
-	std::remove(new_file.c_str());
 
 	system("pause");
 	return 0;
